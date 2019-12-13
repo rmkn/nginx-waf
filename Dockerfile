@@ -11,9 +11,9 @@ ENV RESTY_CORE_VERSION 0.1.17
 ENV RESTY_LRUCACHE_VERSION 0.09
 ENV NGINX_VERSION 1.16.1
 ENV OWASP_CRS_VERSION 3.1.0
+ENV LUAROCKS_VERSION 3.2.1
 
-RUN yum -y install libtool autoconf git file make gcc-c++ flex bison yajl yajl-devel curl-devel curl GeoIP-devel doxygen pcre-devel zlib-devel
-RUN yum install -y ccache
+RUN yum -y install libtool autoconf git file make gcc-c++ flex bison yajl yajl-devel curl-devel curl GeoIP-devel doxygen pcre-devel zlib-devel ccache unzip
 
 RUN curl -o /usr/local/src/openssl.tar.gz -SL https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
 	&& tar zxf /usr/local/src/openssl.tar.gz -C /usr/local/src \
@@ -80,15 +80,26 @@ RUN cd /usr/local/src/nginx-${NGINX_VERSION} \
 	&& make \
 	&& make install
 
+RUN ln -sf /usr/local/nginx/sbin/nginx /usr/bin/nginx
+
 RUN curl -o /usr/local/src/owasp-modsecurity-crs.tar.gz -SL https://github.com/SpiderLabs/owasp-modsecurity-crs/archive/v${OWASP_CRS_VERSION}.tar.gz \
 	&& tar zxf /usr/local/src/owasp-modsecurity-crs.tar.gz -C /usr/local \
 	&& cd /usr/local \
 	&& ln -sf owasp-modsecurity-crs-${OWASP_CRS_VERSION} owasp-modsecurity-crs \
 	&& mv /usr/local/owasp-modsecurity-crs/crs-setup.conf.example /usr/local/owasp-modsecurity-crs/crs-setup.conf
 
+RUN curl -o /usr/local/src/luarocks.tar.gz -SL https://luarocks.org/releases/luarocks-${LUAROCKS_VERSION}.tar.gz \
+	&& tar zxf /usr/local/src/luarocks.tar.gz  -C /usr/local/src \
+	&& cd /usr/local/src/luarocks-${LUAROCKS_VERSION} \
+	&& ./configure --with-lua=/usr/local/luajit/ \
+	&& make \
+	&& make install
+
 COPY nginx.conf /usr/local/nginx/conf/
 COPY security.conf virtual.conf /usr/local/nginx/conf/conf.d/
-COPY main.conf modsecurity.conf /usr/local/nginx/modsec/
+COPY main.conf /usr/local/nginx/modsec/
+COPY openssl.cnf /usr/local/openssl/ssl/
+RUN cp /usr/local/src/ModSecurity/modsecurity.conf-recommended /usr/local/nginx/modsec/modsecurity.conf 
 RUN cp /usr/local/src/ModSecurity/unicode.mapping /usr/local/nginx/modsec/
 
 EXPOSE 80 443
